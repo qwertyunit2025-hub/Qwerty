@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Учёт нарядов v2</title>
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--tx:#1b2230;--mut:#6a7487;--ac:#2f6b4f;--ac2:#e4f1ea;--bd:#dce0e8;--wr:#b4492f}
+@media(prefers-color-scheme:dark){:root{--bg:#12151b;--card:#1b1f27;--tx:#e8ebf0;--mut:#8e97a8;--ac:#5fb58c;--ac2:#1e2d26;--bd:#2b303b;--wr:#e0805f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:14px;max-width:1100px;margin-inline:auto}
+h1{font-size:21px;margin:4px 0 2px}h2{font-size:14px;margin:0 0 10px;color:var(--ac);text-transform:uppercase;letter-spacing:.07em}
+.sub,.lbl{color:var(--mut);font-size:12.5px}.sub{margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.grid{display:grid;gap:14px;grid-template-columns:1fr 1fr}@media(max-width:760px){.grid{grid-template-columns:1fr}}
+textarea,input,select{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:7px 9px;max-width:100%}
+textarea{width:100%;min-height:130px;resize:vertical}
+button{font:inherit;cursor:pointer;border:1px solid var(--ac);background:var(--ac);color:#fff;border-radius:8px;padding:8px 13px}
+button.g{background:transparent;color:var(--ac)}button.x{padding:4px 9px;border-color:var(--bd);color:var(--wr);background:transparent}
+.row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.row input[type=number]{width:60px}.nm{flex:1;min-width:130px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border:1px solid var(--bd);border-radius:20px;padding:3px 10px;font-size:13px;cursor:pointer;background:var(--ac2)}
+.chip.off{background:transparent;color:var(--mut);text-decoration:line-through}.chip.sel{outline:2px solid var(--ac)}
+#pe{margin-top:10px;padding:10px;border:1px dashed var(--bd);border-radius:10px;display:none}
+#pe label{display:block;margin:3px 0}
+.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap}
+th{color:var(--mut);font-size:11.5px;text-transform:uppercase}
+td select{display:block;margin-bottom:3px;width:100%;min-width:120px}select.bad{border-color:var(--wr);color:var(--wr)}
+.we{background:var(--ac2)}tr.t td:first-child{border-left:4px solid var(--ac);font-weight:700}
+.bar{height:6px;border-radius:3px;background:var(--ac);min-width:2px}
+.sum{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px}.sum b{font-size:19px;display:block}
+.hi{color:var(--wr);font-weight:700}
+#today{background:var(--ac2);border-color:var(--ac)}#warn{color:var(--wr);font-size:13px;margin-bottom:6px}
+#stats tbody tr{cursor:pointer}
+@media print{body{background:#fff;color:#000}.noprint{display:none}.card{border:0;padding:0}}
+</style></head><body>
+<h1>Учёт нарядов и дежурств</h1>
+<div class="sub">Офлайн. Данные хранятся только в этом браузере и никуда не отправляются. Для переноса используй «Бэкап».</div>
+<div class="card" id="today"></div>
+
+<div class="grid noprint">
+ <div class="card"><h2>Личный состав</h2>
+  <textarea id="ppl" placeholder="Иванов&#10;Петров&#10;Сидоров"></textarea>
+  <div class="lbl" style="margin-top:6px">Нажми на фамилию: вне строя, стартовый баланс, запреты на наряды, отпуска по датам.</div>
+  <div class="chips" id="chips"></div><div id="pe"></div>
+ </div>
+ <div class="card"><h2>Наряды и график</h2>
+  <div class="lbl row"><span class="nm">Название</span><span style="width:60px">Чел.</span><span style="width:60px">Вес</span><span style="width:60px">Отдых</span><span style="width:34px"></span></div>
+  <div id="duties"></div>
+  <button class="g" id="addD">+ наряд</button>
+  <div class="lbl" style="margin:8px 0">Вес: тяжесть наряда. Отдых: сколько суток после наряда человека не ставят снова.</div>
+  <div class="row"><label>Начало <input type="date" id="st"></label><label>Дней <input type="number" id="nd" min="1" max="120" style="width:70px"></label></div>
+  <div class="row"><button id="gen">Сформировать график</button><button class="g" id="close">Закрыть период</button></div>
+  <div class="lbl">«Закрыть период»: переносит перекос нагрузки в стартовый баланс, чтобы следующий график выровнял его.</div>
+ </div>
+</div>
+
+<div class="card"><h2>График</h2>
+ <div class="lbl" id="stamp"></div><div id="warn"></div>
+ <div class="sc"><table id="sched"></table></div>
+ <div class="lbl noprint" style="margin-top:6px">Фамилию можно заменить вручную. Красным помечены нарушения (отпуск, запрет, дубль в день).</div>
+</div>
+
+<div class="card"><h2>Статистика</h2>
+ <div class="sum" id="sum"></div>
+ <div class="sc"><table id="stats"></table></div>
+ <div class="lbl" id="pd" style="margin-top:8px"></div>
+ <div class="row noprint" style="margin-top:12px">
+  <button class="g" id="cp">Скопировать текстом</button><button class="g" id="csv">CSV</button>
+  <button class="g" id="bk">Бэкап</button><button class="g" id="rs">Восстановить</button><button class="g" id="prt">Печать</button>
+  <button class="x" id="rst">Сбросить всё</button><input type="file" id="fi" accept=".json" hidden>
+ </div>
+</div>
+
+<script>
+const K='naryady_v2',WD=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],$=id=>document.getElementById(id);
+const p2=n=>String(n).padStart(2,'0');
+const dn=s=>{const[y,m,d]=s.split('-').map(Number);return Math.round(Date.UTC(y,m-1,d)/864e5)};
+const fd=n=>{const d=new Date(n*864e5);return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate())};
+const fmt=s=>{const[y,m,d]=s.split('-');return d+'.'+m+'.'+y};
+const wdOf=s=>new Date(dn(s)*864e5).getUTCDay();
+const nowD=new Date(),todayS=nowD.getFullYear()+'-'+p2(nowD.getMonth()+1)+'-'+p2(nowD.getDate());
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const def=()=>({ppl:'',off:[],meta:{},duties:[{id:'d1',n:'Дежурный по роте',c:1,w:2,r:1},{id:'d2',n:'Дневальный',c:2,w:1,r:0},{id:'d3',n:'Караул',c:3,w:3,r:1}],start:todayS,days:14,sched:[],stamp:'',gw:null});
+let S=def(),sel='';
+try{const r=localStorage.getItem(K)||localStorage.getItem('naryady_v1');if(r)S=Object.assign(def(),JSON.parse(r))}catch(e){}
+S.duties.forEach((d,i)=>{d.id=d.id||'d'+i+Date.now();d.r=d.r??0});
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const names=()=>[...new Set(S.ppl.split('\n').map(s=>s.trim()).filter(Boolean))];
+const M=n=>S.meta[n]||(S.meta[n]={bal:0,ban:[],abs:[]});
+const isAbs=(n,t)=>(S.meta[n]?.abs||[]).some(a=>t>=a[0]&&t<=a[1]);
+const isBan=(n,id)=>(S.meta[n]?.ban||[]).includes(id);
+const stampNow=()=>{const d=new Date();return p2(d.getDate())+'.'+p2(d.getMonth()+1)+'.'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes())};
+
+function gen(){
+  const act=names().filter(n=>!S.off.includes(n));
+  if(!act.length){alert('Добавь личный состав.');return}
+  const load={},last={},blk={};act.forEach(n=>{load[n]=M(n).bal;last[n]=''});
+  const order=S.duties.map((_,i)=>i).sort((a,b)=>S.duties[b].w-S.duties[a].w);
+  const sched=[];let prev=new Set(),viol=0,unf=0;const d0=dn(S.start);
+  for(let i=0;i<S.days;i++){
+    const t=fd(d0+i),x=d0+i,today=new Set(),slots=S.duties.map(()=>[]);
+    order.forEach(ui=>{
+      const du=S.duties[ui];
+      const pool=act.filter(n=>!today.has(n)&&!isAbs(n,t)&&!isBan(n,du.id))
+        .map(n=>({n,s:load[n]+(prev.has(n)?.5:0)+(x<(blk[n]||0)?100:0),l:last[n],r:Math.random()}))
+        .sort((a,b)=>a.s-b.s||(a.l<b.l?-1:a.l>b.l?1:0)||a.r-b.r);
+      const pick=pool.slice(0,du.c).map(o=>o.n);
+      pick.forEach(n=>{if(x<(blk[n]||0))viol++;today.add(n);load[n]+=du.w;last[n]=t;blk[n]=x+du.r+1});
+      while(pick.length<du.c){pick.push('');unf++}
+      slots[ui]=pick;
+    });
+    sched.push({date:t,slots});prev=today;
+  }
+  S.sched=sched;S.stamp=stampNow();S.gw={viol,unf};save();renderAll();
+}
+
+function calc(){
+  const st={};names().forEach(n=>st[n]={n,c:S.duties.map(()=>0),load:0,we:0,bal:M(n).bal,last:'',off:S.off.includes(n)});
+  S.sched.forEach(day=>day.slots.forEach((sl,ui)=>sl.forEach(v=>{
+    const x=st[v];if(!v||!x)return;x.c[ui]++;x.load+=S.duties[ui]?.w||1;
+    const w=wdOf(day.date);if(w==0||w==6)x.we++;if(day.date>x.last)x.last=day.date;
+  })));
+  return Object.values(st);
+}
+
+function renderToday(){
+  const day=S.sched.find(d=>d.date==todayS);
+  $('today').innerHTML=day?`<b>Сегодня, ${fmt(todayS)} (${WD[wdOf(todayS)]}), в наряде:</b><br>`+S.duties.map((d,i)=>`${esc(d.n)}: <b>${day.slots[i].filter(Boolean).map(esc).join(', ')||'—'}</b>`).join('<br>'):`<b>Сегодня, ${fmt(todayS)}:</b> <span class="lbl">график на сегодня не задан</span>`;
+}
+
+function chips(){$('chips').innerHTML=names().map(n=>`<span class="chip ${S.off.includes(n)?'off':''} ${sel==n?'sel':''}" data-n="${esc(n)}">${esc(n)}</span>`).join('')}
+function renderPE(){
+  const e=$('pe');if(!sel||!names().includes(sel)){e.style.display='none';return}
+  const m=M(sel);e.style.display='block';
+  e.innerHTML=`<b>${esc(sel)}</b>
+  <label><input type="checkbox" data-a="off" ${S.off.includes(sel)?'checked':''}> Вне строя (совсем исключить)</label>
+  <label>Стартовый баланс <input type="number" step="0.5" data-a="bal" value="${m.bal}" style="width:80px"> <span class="lbl">плюс = уже много стоял</span></label>
+  <div class="lbl" style="margin-top:6px">Запрещённые наряды:</div>
+  ${S.duties.map(d=>`<label><input type="checkbox" data-a="ban" data-id="${d.id}" ${m.ban.includes(d.id)?'checked':''}> не ставить: ${esc(d.n)}</label>`).join('')}
+  <div class="lbl" style="margin-top:6px">Отсутствие (отпуск, госпиталь, командировка):</div>
+  ${m.abs.map((a,i)=>`<div class="row" style="margin:3px 0">${fmt(a[0])} – ${fmt(a[1])} <button class="x" data-a="delabs" data-i="${i}">✕</button></div>`).join('')}
+  <div class="row"><input type="date" id="a1"><input type="date" id="a2"><button class="g" data-a="addabs">+</button></div>`;
+}
+function renderInputs(){
+  $('ppl').value=S.ppl;$('st').value=S.start;$('nd').value=S.days;chips();renderPE();
+  $('duties').innerHTML=S.duties.map((d,i)=>`<div class="row"><input class="nm" data-i="${i}" data-f="n" value="${esc(d.n)}">`+['c','w','r'].map(f=>`<input type="number" min="${f=='r'?0:1}" data-i="${i}" data-f="${f}" value="${d[f]}">`).join('')+`<button class="x" data-del="${i}">✕</button></div>`).join('');
+}
+function renderSched(){
+  $('warn').textContent='';
+  if(!S.sched.length){$('sched').innerHTML='';$('stamp').textContent='Пока не сформирован.';return}
+  $('stamp').textContent='Сформирован: '+S.stamp;
+  if(S.gw&&(S.gw.viol||S.gw.unf))$('warn').textContent=`⚠ Не хватило людей: пустых мест ${S.gw.unf}, нарушений отдыха ${S.gw.viol}. Проверь отпуска, запреты и число людей.`;
+  const opts=['',...names()];
+  const head='<tr><th>Дата</th>'+S.duties.map(d=>`<th>${esc(d.n)}</th>`).join('')+'</tr>';
+  $('sched').innerHTML=head+S.sched.map((day,di)=>{
+    const w=wdOf(day.date),cnt={};day.slots.forEach(s=>s.forEach(v=>{if(v)cnt[v]=(cnt[v]||0)+1}));
+    const cells=day.slots.map((sl,ui)=>'<td>'+sl.map((v,si)=>{
+      const bad=v&&(isAbs(v,day.date)||isBan(v,S.duties[ui].id)||cnt[v]>1);
+      return `<select class="${bad?'bad':''}" data-d="${di}" data-u="${ui}" data-s="${si}">`+opts.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${o?esc(o):'—'}</option>`).join('')+'</select>'}).join('')+'</td>').join('');
+    return `<tr class="${w==0||w==6?'we':''} ${day.date==todayS?'t':''}"><td>${fmt(day.date)} <span class="lbl">${WD[w]}</span></td>${cells}</tr>`;
+  }).join('');
+}
+function renderStats(){
+  const rows=calc(),act=rows.filter(r=>!r.off);
+  if(!rows.length){$('sum').innerHTML='';$('stats').innerHTML='';return}
+  const tt=act.map(r=>r.load+r.bal),mn=Math.min(...tt),mx=Math.max(...tt),tot=rows.reduce((a,r)=>a+r.c.reduce((x,y)=>x+y,0),0);
+  const sp=+(mx-mn).toFixed(1);
+  $('sum').innerHTML=`<div><b>${act.length}</b><span class="lbl">в строю</span></div><div><b>${tot}</b><span class="lbl">назначений</span></div><div><b class="${sp>Math.max(...S.duties.map(d=>d.w),1)?'hi':''}">${sp}</b><span class="lbl">разброс нагрузки</span></div>`;
+  const sorted=[...rows].sort((a,b)=>(b.load+b.bal)-(a.load+a.bal)||a.n.localeCompare(b.n,'ru')),top=Math.max(mx,1);
+  $('stats').innerHTML='<thead><tr><th>Фамилия</th>'+S.duties.map(d=>`<th>${esc(d.n)}</th>`).join('')+'<th>Вых.</th><th>Баланс</th><th>Итого</th><th></th><th>Последний</th></tr></thead><tbody>'+
+  sorted.map(r=>`<tr data-n="${esc(r.n)}" style="${r.off?'opacity:.45':''}"><td>${esc(r.n)}${r.off?' <span class="lbl">(вне строя)</span>':''}</td>${r.c.map(v=>`<td>${v}</td>`).join('')}<td>${r.we}</td><td>${r.bal}</td><td><b>${+(r.load+r.bal).toFixed(1)}</b></td><td style="width:80px"><div class="bar" style="width:${Math.max(0,Math.round((r.load+r.bal)/top*100))}%"></div></td><td>${r.last?fmt(r.last):'—'}</td></tr>`).join('')+'</tbody>';
+}
+function renderAll(){renderToday();renderInputs();renderSched();renderStats()}
+
+function personDates(n){
+  const out=[];S.sched.forEach(day=>day.slots.forEach((sl,ui)=>{if(sl.includes(n))out.push(`${fmt(day.date)} ${WD[wdOf(day.date)]} · ${S.duties[ui].n}`)}));
+  $('pd').innerHTML=`<b>${esc(n)}</b>: `+(out.length?out.map(esc).join('<br>'):'нарядов нет');
+}
+function asText(){
+  let t='ГРАФИК НАРЯДОВ\nСформирован: '+S.stamp+'\n';
+  S.sched.forEach(day=>{t+=`\n${fmt(day.date)} (${WD[wdOf(day.date)]})\n`+S.duties.map((d,i)=>`  ${d.n}: ${day.slots[i].filter(Boolean).join(', ')||'—'}`).join('\n')+'\n'});
+  return t;
+}
+function copyText(t){
+  const f=()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');alert('Скопировано')}catch(e){alert('Не удалось скопировать')}a.remove()};
+  navigator.clipboard?navigator.clipboard.writeText(t).then(()=>alert('Скопировано'),f):f();
+}
+function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click()}
+
+$('ppl').addEventListener('input',e=>{S.ppl=e.target.value;save();chips()});
+$('chips').addEventListener('click',e=>{const n=e.target.dataset.n;if(!n)return;sel=sel==n?'':n;chips();renderPE()});
+$('pe').addEventListener('click',e=>{
+  const a=e.target.dataset.a,m=M(sel);
+  if(a=='addabs'){const x=$('a1').value,y=$('a2').value;if(!x||!y||y<x){alert('Укажи даты: с и по.');return}m.abs.push([x,y]);save();renderAll()}
+  if(a=='delabs'){m.abs.splice(+e.target.dataset.i,1);save();renderAll()}
+});
+$('pe').addEventListener('change',e=>{
+  const t=e.target,a=t.dataset.a,m=M(sel);
+  if(a=='off'){S.off=t.checked?[...S.off,sel]:S.off.filter(x=>x!==sel)}
+  if(a=='bal')m.bal=parseFloat(t.value)||0;
+  if(a=='ban')m.ban=t.checked?[...m.ban,t.dataset.id]:m.ban.filter(x=>x!==t.dataset.id);
+  if(a=='off'||a=='bal'||a=='ban'){save();renderAll()}
+});
+$('duties').addEventListener('input',e=>{const t=e.target,i=t.dataset.i;if(i==null)return;const f=t.dataset.f;S.duties[i][f]=f=='n'?t.value:Math.max(f=='r'?0:1,parseInt(t.value)||(f=='r'?0:1));save()});
+$('duties').addEventListener('click',e=>{const i=e.target.dataset.del;if(i==null)return;S.duties.splice(i,1);S.sched=[];save();renderAll()});
+$('addD').onclick=()=>{S.duties.push({id:'d'+Date.now(),n:'Новый наряд',c:1,w:1,r:0});S.sched=[];save();renderAll()};
+$('st').onchange=e=>{S.start=e.target.value||todayS;save()};
+$('nd').onchange=e=>{S.days=Math.min(120,Math.max(1,parseInt(e.target.value)||14));save()};
+$('gen').onclick=gen;
+$('close').onclick=()=>{
+  if(!S.sched.length){alert('Сначала сформируй график.');return}
+  if(!confirm('Перенести перекос нагрузки в баланс, очистить график и сдвинуть начало на следующий день?'))return;
+  const rows=calc().filter(r=>!r.off),tt=rows.map(r=>r.load+r.bal),avg=tt.reduce((a,b)=>a+b,0)/(tt.length||1);
+  rows.forEach(r=>{M(r.n).bal=+(r.load+r.bal-avg).toFixed(1)});
+  S.start=fd(dn(S.sched[S.sched.length-1].date)+1);S.sched=[];S.gw=null;save();renderAll();
+};
+$('sched').addEventListener('change',e=>{const t=e.target;if(t.dataset.d==null)return;S.sched[t.dataset.d].slots[t.dataset.u][t.dataset.s]=t.value;save();renderSched();renderStats();renderToday()});
+$('stats').addEventListener('click',e=>{const r=e.target.closest('tr[data-n]');if(r)personDates(r.dataset.n)});
+$('cp').onclick=()=>S.sched.length?copyText(asText()):alert('График пуст.');
+$('csv').onclick=()=>{
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const o=[['Дата',...S.duties.map(d=>d.n)].map(q).join(';')];
+  S.sched.forEach(day=>o.push([fmt(day.date),...day.slots.map(s=>s.filter(Boolean).join(', '))].map(q).join(';')));
+  o.push('');o.push(['Фамилия',...S.duties.map(d=>d.n),'Выходные','Баланс','Итого','Последний'].map(q).join(';'));
+  calc().forEach(r=>o.push([r.n,...r.c,r.we,r.bal,+(r.load+r.bal).toFixed(1),r.last?fmt(r.last):''].map(q).join(';')));
+  dl('naryady.csv','\ufeff'+o.join('\n'),'text/csv');
+};
+$('bk').onclick=()=>dl('naryady-backup-'+todayS+'.json',JSON.stringify(S),'application/json');
+$('rs').onclick=()=>$('fi').click();
+$('fi').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{S=Object.assign(def(),JSON.parse(r.result));save();renderAll()}catch(x){alert('Файл не подходит.')}};r.readAsText(f)};
+$('prt').onclick=()=>window.print();
+$('rst').onclick=()=>{if(confirm('Удалить все данные? Сначала сделай бэкап.')){S=def();sel='';save();renderAll()}};
+renderAll();
+</script></body></html>
