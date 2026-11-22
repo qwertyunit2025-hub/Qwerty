@@ -13,7 +13,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - uses: actions/setup-java@v4
         with:
@@ -25,7 +25,7 @@ jobs:
           mkdir www
           cp naryady-v2.html www/index.html
           npm init -y
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           npx cap init "Наряды" "com.naryady.app" --web-dir=www
           npx cap add android
           npx cap sync android
